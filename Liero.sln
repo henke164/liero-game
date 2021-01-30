@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30611.23
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Liero", "Liero\Liero.csproj", "{0A3897C5-414E-443E-9686-1CB72CD43FCD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0A3897C5-414E-443E-9686-1CB72CD43FCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A3897C5-414E-443E-9686-1CB72CD43FCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A3897C5-414E-443E-9686-1CB72CD43FCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A3897C5-414E-443E-9686-1CB72CD43FCD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3B111CCD-EFFF-44C7-B108-BD4A59CE2763}
+	EndGlobalSection
+EndGlobal
