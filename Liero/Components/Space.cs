@@ -75,7 +75,12 @@ namespace Liero.Components
                 for (var y = rectangle.Y; y < rectangle.Y + rectangle.Height; y++)
                 {
                     var i = x + levelSize.Width * y;
-                    if (i > 0 && i < pixels.Length && pixels[i] != 0xFF00FF00)
+                    if (i < 0 || i >= pixels.Length)
+                    {
+                        return false;
+                    }
+
+                    if (pixels[i] != 0xFF00FF00)
                     {
                         return false;
                     }
@@ -101,7 +106,7 @@ namespace Liero.Components
         private void CreateSpace(int x, int y)
         {
             var i = x + levelSize.Width * y;
-            if (i < 0 || i > pixels.Length)
+            if (i < 0 || i > pixels.Length - 1)
             {
                 return;
             }

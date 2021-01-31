@@ -2,12 +2,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 
 namespace Liero.Components
 {
     public class Player : DrawableGameComponent
     {
-        private SpaceDetector _spaceDetector;
         private SpriteBatch _spriteBatch;
         private Texture2D _texture;
         private Texture2D _crosshairTexture;
@@ -17,7 +17,10 @@ namespace Liero.Components
 
         private int _speed = 150;
         private Vector2 _force = Vector2.Zero;
-        private float _gravity = 300f;
+        private float _gravity = 450f;
+
+        private float _startFallTime = 0;
+        private bool _isGrounded = true;
 
         private Point Center
         {
@@ -39,7 +42,6 @@ namespace Liero.Components
             : base (game)
         {
             _position = new Point(0, 0);
-            _spaceDetector = new SpaceDetector(_position, _size, _speed);
         }
 
         public override void Initialize()
@@ -65,42 +67,36 @@ namespace Liero.Components
 
             var time = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            if (kbState.IsKeyDown(Keys.A) && _spaceDetector.CanGoLeft(time))
+            if (!_isGrounded && _startFallTime == 0)
+            {
+                _force.Y += (float)Math.Sqrt(_gravity);
+            }
+
+            if (!_isGrounded && _force.Y > _gravity * time && _startFallTime == 0)
+            {
+                _startFallTime = (float)gameTime.TotalGameTime.TotalSeconds;
+            }
+
+            if (kbState.IsKeyDown(Keys.A))
             {
                 velocity.X -= _speed * time;
             }
 
-            if (kbState.IsKeyDown(Keys.D) && _spaceDetector.CanGoRight(time))
+            if (kbState.IsKeyDown(Keys.D))
             {
                 velocity.X += _speed * time;
             }
 
-            var currentGravity = _force.Y == 0 ? _gravity * time
-                : (-_force.Y > _gravity * time) ? _gravity * time : -_force.Y;
-                
-            if (_force.Y <= 0)
+            if (_isGrounded)
             {
                 if (kbState.IsKeyDown(Keys.Space))
                 {
-                    _force = new Vector2(0, _gravity);
-                }
-
-                var highestGround = _spaceDetector.GetHighestGround();
-                if (highestGround == int.MaxValue || highestGround > _position.Y + _size.Y - currentGravity) 
-                {
-                    velocity.Y += currentGravity;
-                }
-                else if (highestGround != int.MaxValue && highestGround < _position.Y + _size.Y + (_speed * time))
-                {
-                    velocity.Y -= _speed * time;
+                    _force.Y = -_gravity;
+                    _isGrounded = false;
                 }
             }
-            else
-            {
-                velocity.Y -= _force.Y * time;
-            }
 
-            _force.Y -= _gravity * time;
+            velocity.Y += (_gravity - _force.Y) * time;
 
             if (mouseState.RightButton == ButtonState.Pressed)
             {
@@ -108,9 +104,41 @@ namespace Liero.Components
                 Space.Instance.CreateCircle(digSite, (int)(_size.X * 1.5f));
             }
 
-            _position += velocity.ToPoint();
+            // IsFalling
+            if (_force.Y >= 0)
+            {
+                Console.WriteLine((float)gameTime.TotalGameTime.TotalSeconds - _startFallTime);
+                var fallSpeedMultiplier = _startFallTime > 0 ? ((float)gameTime.TotalGameTime.TotalSeconds - _startFallTime) * 5 : 1f;
+                velocity.Y = velocity.Y * fallSpeedMultiplier;
 
-            _spaceDetector.UpdateTransform(_position, _size, _speed);
+                if (!CollisionDetector.IsIntersecting(GetNextFrameBottomBoundingBox(velocity)))
+                {
+                    _position.Y += (int)velocity.Y;
+                    _isGrounded = false;
+                }
+                else if (!_isGrounded)
+                {
+                    _isGrounded = true;
+                    _startFallTime = 0;
+                    _force.Y = 0;
+                }
+            }
+            else
+            {
+                if (!CollisionDetector.IsIntersecting(GetNextFrameTopBoundingBox(velocity)))
+                {
+                    _position.Y -= (int)velocity.Y;
+                }
+                else
+                {
+                    _isGrounded = false;
+                    _force.Y -= _force.Y;
+                    _startFallTime = (float)gameTime.TotalGameTime.TotalSeconds;
+                }
+            }
+
+            var nextXPosition = _position + new Vector2(velocity.X, 0).ToPoint();
+            _position.X = nextXPosition.X;
 
             UpdateDirection(mouseState);
 
@@ -122,6 +150,20 @@ namespace Liero.Components
             var matrix = Matrix.Invert(Game1.GameCamera.TransformNoZoom);
             var mouseWorldPosition = Vector2.Transform(mouseState.Position.ToVector2() - Center.ToVector2(), matrix);
             _direction = Vector2.Normalize(mouseWorldPosition);
+        }
+
+        private Rectangle GetNextFrameTopBoundingBox(Vector2 velocity)
+        {
+            var nextYPosition = _position + new Vector2(0, velocity.Y).ToPoint();
+            var boxSize = _size.X / 4;
+            return new Rectangle(nextYPosition.X + (boxSize / 2), nextYPosition.Y, boxSize, boxSize);
+        }
+
+        private Rectangle GetNextFrameBottomBoundingBox(Vector2 velocity)
+        {
+            var nextYPosition = _position + new Vector2(0, velocity.Y).ToPoint();
+            var boxSize = _size.X / 4;
+            return new Rectangle(nextYPosition.X, nextYPosition.Y + _size.Y - boxSize, _size.X, boxSize);
         }
 
         public override void Draw(GameTime gameTime)
