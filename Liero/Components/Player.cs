@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Liero.Services;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
@@ -6,17 +7,39 @@ namespace Liero.Components
 {
     public class Player : DrawableGameComponent
     {
+        private SpaceDetector _spaceDetector;
         private SpriteBatch _spriteBatch;
         private Texture2D _texture;
-        private Vector2 _position;
-        private Vector2 _size = new Vector2(100, 100);
+        private Texture2D _crosshairTexture;
+        private Vector2 _direction = new Vector2(10, 0);
+        private Point _position;
+        private Point _size = new Point(50, 100);
 
-        private float speed = 3f;
+        private int _speed = 150;
+        private Vector2 _force = Vector2.Zero;
+        private float _gravity = 300f;
+
+        private Point Center
+        {
+            get
+            {
+                return new Point(_position.X + (_size.X / 2), _position.Y + (_size.Y / 2));
+            }
+        }
+
+        private Vector2 CrosshairCenter
+        {
+            get
+            {
+                return new Vector2(Center.X - (_crosshairTexture.Width / 2), Center.Y - (_crosshairTexture.Height / 2));
+            }
+        }
 
         public Player(Game game) 
             : base (game)
         {
-            _position = new Vector2(0, 0);
+            _position = new Point(0, 0);
+            _spaceDetector = new SpaceDetector(_position, _size, _speed);
         }
 
         public override void Initialize()
@@ -30,92 +53,86 @@ namespace Liero.Components
 
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _texture = Game.Content.Load<Texture2D>("images/player");
-        }
-
-        private int GetHighestGround()
-        {
-            var spaceScan = new Rectangle
-            {
-                X = (int)_position.X,
-                Y = (int)_position.Y + ((int)_size.Y / 2),
-                Width = (int)_size.X,
-                Height = (int)_size.Y
-            };
-
-            return Space.Instance.GetGroundPosition(spaceScan);
-        }
-
-        private bool CanGoLeft()
-        {
-            var spaceScan = new Rectangle
-            {
-                X = (int)_position.X - (int)speed,
-                Y = (int)_position.Y,
-                Width = (int)speed,
-                Height = (int)_size.Y
-            };
-
-            return Space.Instance.HasSpace(spaceScan);
-        }
-
-        private bool CanGoRight()
-        {
-            var spaceScan = new Rectangle
-            {
-                X = (int)_position.X + (int)_size.X,
-                Y = (int)_position.Y,
-                Width = (int)speed,
-                Height = (int)_size.Y
-            };
-
-            return Space.Instance.HasSpace(spaceScan);
+            _crosshairTexture = Game.Content.Load<Texture2D>("images/crosshair");
         }
 
         public override void Update(GameTime gameTime)
         {
-            base.Update(gameTime);
-            var velocity = new Vector2(0, 0);
+            var mouseState = Mouse.GetState();
             var kbState = Keyboard.GetState();
 
-            if (kbState.IsKeyDown(Keys.A) && CanGoLeft())
+            var velocity = Vector2.Zero;
+
+            var time = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (kbState.IsKeyDown(Keys.A) && _spaceDetector.CanGoLeft(time))
             {
-                velocity.X = -speed;
+                velocity.X -= _speed * time;
             }
 
-            if (kbState.IsKeyDown(Keys.D) && CanGoRight())
+            if (kbState.IsKeyDown(Keys.D) && _spaceDetector.CanGoRight(time))
             {
-                velocity.X += speed;
+                velocity.X += _speed * time;
             }
 
-            var highestGround = GetHighestGround();
-            if (highestGround == -1 || highestGround > _position.Y + (int)_size.Y)
+            var currentGravity = _force.Y == 0 ? _gravity * time
+                : (-_force.Y > _gravity * time) ? _gravity * time : -_force.Y;
+                
+            if (_force.Y <= 0)
             {
-                velocity.Y += speed;
+                if (kbState.IsKeyDown(Keys.Space))
+                {
+                    _force = new Vector2(0, _gravity);
+                }
+
+                var highestGround = _spaceDetector.GetHighestGround();
+                if (highestGround == int.MaxValue || highestGround > _position.Y + _size.Y - currentGravity) 
+                {
+                    velocity.Y += currentGravity;
+                }
+                else if (highestGround != int.MaxValue && highestGround < _position.Y + _size.Y + (_speed * time))
+                {
+                    velocity.Y -= _speed * time;
+                }
             }
-            else if (
-                highestGround > _position.Y + (int)_size.Y * 0.6 &&
-                highestGround < _position.Y + (int)_size.Y * 0.8)
+            else
             {
-                _position.Y -= speed;// highestGround - (int)_size.Y;
+                velocity.Y -= _force.Y * time;
             }
 
-            if (kbState.IsKeyDown(Keys.Space))
+            _force.Y -= _gravity * time;
+
+            if (mouseState.RightButton == ButtonState.Pressed)
             {
-                var midPoint = new Vector2(_position.X + _size.X / 2, _position.Y + _size.Y / 2);
-                Space.Instance.CreateCircle(midPoint, (int)(_size.X * 1f));
+                var digSite = (CrosshairCenter + (_direction * 70)).ToPoint();
+                Space.Instance.CreateCircle(digSite, (int)(_size.X * 1.5f));
             }
 
-            _position += velocity;
+            _position += velocity.ToPoint();
+
+            _spaceDetector.UpdateTransform(_position, _size, _speed);
+
+            UpdateDirection(mouseState);
+
+            Game1.GameCamera.SetPosition(Center.ToVector2());
+        }
+
+        private void UpdateDirection(MouseState mouseState)
+        {
+            var matrix = Matrix.Invert(Game1.GameCamera.TransformNoZoom);
+            var mouseWorldPosition = Vector2.Transform(mouseState.Position.ToVector2() - Center.ToVector2(), matrix);
+            _direction = Vector2.Normalize(mouseWorldPosition);
         }
 
         public override void Draw(GameTime gameTime)
         {
-            _spriteBatch.Begin();
+            _spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, Game1.GameCamera.Transform);
 
-            _spriteBatch.Draw(_texture,
-                new Rectangle((int)_position.X, (int)_position.Y, (int)_size.X, (int)_size.Y),
-                Color.White);
-            
+            _spriteBatch.Draw(_texture, new Rectangle(_position, _size), Color.White);
+
+            var crosshairPosition = CrosshairCenter + (_direction * 155);
+            _spriteBatch.Draw(_crosshairTexture, crosshairPosition, Color.White);
+
             _spriteBatch.End();
         }
     }

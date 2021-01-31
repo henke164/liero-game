@@ -8,6 +8,8 @@ namespace Liero
 {
     public class Game1 : Game
     {
+        public static Camera GameCamera;
+
         public Action<int, int, int> CreateSpace;
 
         private GraphicsDeviceManager _graphics;
@@ -25,6 +27,8 @@ namespace Liero
             Components.Add(new Space(this));
             Components.Add(new Player(this));
 
+            GameCamera = new Camera(GraphicsDevice.Viewport);
+
             base.Initialize();
         }
 
@@ -37,6 +41,8 @@ namespace Liero
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
+
+            GameCamera.UpdateCamera(GraphicsDevice.Viewport);
 
             base.Update(gameTime);
         }

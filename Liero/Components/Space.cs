@@ -1,8 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using System;
-using System.Collections.Generic;
 
 namespace Liero.Components
 {
@@ -38,7 +36,7 @@ namespace Liero.Components
             GraphicsDevice.Textures[0] = null;
             canvas.SetData(pixels, 0, levelSize.Width * levelSize.Height);
 
-            _spriteBatch.Begin();
+            _spriteBatch.Begin(SpriteSortMode.Deferred, null, null, null, null, null, Game1.GameCamera.Transform);
             _spriteBatch.Draw(canvas, new Rectangle(0, 0, levelSize.Width, levelSize.Height), Color.White);
             _spriteBatch.End();
 
@@ -47,23 +45,27 @@ namespace Liero.Components
 
         public int GetGroundPosition(Rectangle rectangle)
         {
+            var lowestY = int.MaxValue;
             for (var x = rectangle.X; x < rectangle.X + rectangle.Width; x++)
             {
                 for (var y = rectangle.Y; y < rectangle.Y + rectangle.Height; y++)
                 {
-                    var i = (int)x + levelSize.Width * (int)y;
-                    if (i < 0 || i > pixels.Length)
+                    var i = x + levelSize.Width * y;
+                    if (i < 0 || i >= pixels.Length)
                     {
                         continue;
                     }
 
                     if (pixels[i] != 0xFF00FF00)
                     {
-                        return y;
+                        if (y < lowestY)
+                        {
+                            lowestY = y;
+                        }
                     }
                 }
             }
-            return -1;
+            return lowestY;
         }
 
         public bool HasSpace(Rectangle rectangle)
@@ -72,18 +74,18 @@ namespace Liero.Components
             {
                 for (var y = rectangle.Y; y < rectangle.Y + rectangle.Height; y++)
                 {
-                    var i = (int)x + levelSize.Width * (int)y;
-                    if (i > 0 && i < pixels.Length && pixels[i] == 0xFF00FF00)
+                    var i = x + levelSize.Width * y;
+                    if (i > 0 && i < pixels.Length && pixels[i] != 0xFF00FF00)
                     {
-                        return true;
+                        return false;
                     }
                 }
             }
 
-            return false;
+            return true;
         }
 
-        public void CreateCircle(Vector2 origin, int radius)
+        public void CreateCircle(Point origin, int radius)
         {
             for (int x = -radius; x < radius; x++)
             {
@@ -96,9 +98,9 @@ namespace Liero.Components
             }
         }
 
-        private void CreateSpace(float x, float y)
+        private void CreateSpace(int x, int y)
         {
-            var i = (int)x + levelSize.Width * (int)y;
+            var i = x + levelSize.Width * y;
             if (i < 0 || i > pixels.Length)
             {
                 return;
