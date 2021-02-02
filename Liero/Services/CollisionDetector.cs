@@ -9,5 +9,10 @@ namespace Liero.Services
         {
             return !Space.Instance.HasSpace(rectangle);
         }
+
+        public static float GetGroundY(Rectangle rectangle)
+        {
+            return Space.Instance.GetGroundPosition(rectangle);
+        }
     }
 }
